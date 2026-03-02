@@ -66,3 +66,7 @@ services:
     entrypoint: ["node", "dist/index.js"]
     depends_on:
       - openclaw-gateway
+
+volumes:
+  openclaw_data:
+  openclaw_workspace:

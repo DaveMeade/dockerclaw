@@ -1,4 +1,4 @@
-name: openclaw-local
+name: ${COMPOSE_PROJECT_NAME}
 
 services:
   openclaw-gateway:
@@ -38,17 +38,45 @@ services:
         "--allow-unconfigured"
       ]
 
-  openclaw-cli:
-    #profiles: ["manual"]
-    image: openclaw:local
+  dockerclaw-cli:
+      image: ${OPENCLAW_IMAGE:-openclaw:local}    
+      # Standard networking so it's a real project member
+      networks:
+        - default
+      # Root for volume permission consistency
+      user: "0:0"
+      cap_drop:
+        - NET_RAW
+        - NET_ADMIN
+      security_opt:
+        - no-new-privileges:true
+      environment:
+        HOME: /home/node
+        TERM: xterm-256color
+        # Direct CLI to the gateway's DNS name instead of loopback
+        OPENCLAW_GATEWAY_URL: ws://openclaw-gateway:18789
+        OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+        OPENCLAW_ALLOW_INSECURE_PRIVATE_WS: "1"
+        BROWSER: echo
+      volumes:
+        - openclaw_data:/home/node/.openclaw
+        - openclaw_workspace:/home/node/.openclaw/workspace
+      stdin_open: true
+      tty: true
+      init: true
+      entrypoint: ["node", "dist/index.js"]
 
-    # root here too for consistency
-    user: "0:0"
 
-    volumes:
-      - openclaw_data:/home/node/.openclaw
-      - openclaw_workspace:/home/node/.openclaw/workspace
-
-volumes:
-  openclaw_data:
-  openclaw_workspace:
+#  openclaw-cli:
+#    profiles: ["manual"]
+#    image: openclaw:local
+#    # root here too for file permission consistency
+#    user: "0:0"
+#
+#    volumes:
+#      - openclaw_data:/home/node/.openclaw
+#      - openclaw_workspace:/home/node/.openclaw/workspace
+#
+#volumes:
+#  openclaw_data:
+# openclaw_workspace:
