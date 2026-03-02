@@ -14,7 +14,7 @@ import type { AuthRateLimiter } from "./auth-rate-limit.js";
 import type { ResolvedGatewayAuth } from "./auth.js";
 import { sendJson, setSseHeaders, writeDone } from "./http-common.js";
 import { handleGatewayPostJsonEndpoint } from "./http-endpoint-helpers.js";
-import { resolveAgentIdForRequest, resolveSessionKey } from "./http-utils.js";
+import { resolveGatewayRequestContext } from "./http-utils.js";
 
 type OpenAiHttpOptions = {
   auth: ResolvedGatewayAuth;
@@ -45,6 +45,7 @@ function buildAgentCommandInput(params: {
   prompt: { message: string; extraSystemPrompt?: string };
   sessionKey: string;
   runId: string;
+  messageChannel: string;
 }) {
   return {
     message: params.prompt.message,
@@ -52,7 +53,7 @@ function buildAgentCommandInput(params: {
     sessionKey: params.sessionKey,
     runId: params.runId,
     deliver: false as const,
-    messageChannel: "webchat" as const,
+    messageChannel: params.messageChannel,
     bestEffortDeliver: false as const,
   };
 }
@@ -172,14 +173,6 @@ function buildAgentPrompt(messagesUnknown: unknown): {
   };
 }
 
-function resolveOpenAiSessionKey(params: {
-  req: IncomingMessage;
-  agentId: string;
-  user?: string | undefined;
-}): string {
-  return resolveSessionKey({ ...params, prefix: "openai" });
-}
-
 function coerceRequest(val: unknown): OpenAiChatCompletionRequest {
   if (!val || typeof val !== "object") {
     return {};
@@ -224,8 +217,14 @@ export async function handleOpenAiHttpRequest(
   const model = typeof payload.model === "string" ? payload.model : "openclaw";
   const user = typeof payload.user === "string" ? payload.user : undefined;
 
-  const agentId = resolveAgentIdForRequest({ req, model });
-  const sessionKey = resolveOpenAiSessionKey({ req, agentId, user });
+  const { sessionKey, messageChannel } = resolveGatewayRequestContext({
+    req,
+    model,
+    user,
+    sessionPrefix: "openai",
+    defaultMessageChannel: "webchat",
+    useMessageChannelHeader: true,
+  });
   const prompt = buildAgentPrompt(payload.messages);
   if (!prompt.message) {
     sendJson(res, 400, {
@@ -243,6 +242,7 @@ export async function handleOpenAiHttpRequest(
     prompt,
     sessionKey,
     runId,
+    messageChannel,
   });
 
   if (!stream) {
