@@ -125,6 +125,7 @@ gateway-wait:
 # Apply idempotent config + approvals
 apply:
   # Approvals file write (no restart needed, but harmless if you prefer)
+  echo "Applying approvals from exec-approvals.json..."
   {{dc}} exec -T {{gw}} node dist/index.js approvals set --stdin < exec-approvals.json
 
 # Recreate gateway so it reloads .env (restart does NOT reload env)
